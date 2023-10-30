@@ -3,8 +3,8 @@ rule = ScalafixNoDiscard
 */
 package fix
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
-object IgnoredFuture {
+object Blocks {
   Future.successful(6) // assert: ScalafixNoDiscard
 }
