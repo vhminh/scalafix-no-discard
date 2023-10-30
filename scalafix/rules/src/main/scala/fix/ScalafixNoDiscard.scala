@@ -46,7 +46,7 @@ class ScalafixNoDiscard extends SemanticRule("ScalafixNoDiscard") {
 
   private def implicitlyDiscardedAsUnits(implicit doc: SemanticDocument): Patch = {
     val implicitUnits = doc.diagnostics
-      .filter(_.message == "discarded non-Unit value")
+      .filter(_.message.startsWith("discarded non-Unit value"))
       .map(_.position)
       .toSet
     doc.tree.collect {

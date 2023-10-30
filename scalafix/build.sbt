@@ -3,6 +3,8 @@ lazy val V = _root_.scalafix.sbt.BuildInfo
 lazy val rulesCrossVersions = Seq(V.scala213, V.scala212)
 lazy val scala3Version = "3.3.0"
 
+Global / onChangedBuildSource := ReloadOnSourceChanges
+
 inThisBuild(
   List(
     organization := "com.example",
@@ -47,7 +49,14 @@ lazy val input = projectMatrix
     publish / skip := true
   )
   .defaultAxes(VirtualAxis.jvm)
-  .jvmPlatform(scalaVersions = rulesCrossVersions :+ scala3Version)
+  .jvmPlatform(
+    scalaVersions = Seq(V.scala212),
+    settings = Seq(scalacOptions += "-Ywarn-value-discard"),
+  )
+  .jvmPlatform(
+    scalaVersions = Seq(V.scala213, scala3Version),
+    settings = Seq(scalacOptions += "-Wvalue-discard"),
+  )
 
 lazy val output = projectMatrix
   .settings(
@@ -83,11 +92,11 @@ lazy val tests = projectMatrix
   .defaultAxes(
     rulesCrossVersions.map(VirtualAxis.scalaABIVersion) :+ VirtualAxis.jvm: _*
   )
-  .jvmPlatform(
-    scalaVersions = Seq(V.scala212),
-    axisValues = Seq(TargetAxis(scala3Version)),
-    settings = Seq()
-  )
+  // .jvmPlatform(
+  //   scalaVersions = Seq(V.scala212),
+  //   axisValues = Seq(TargetAxis(scala3Version)),
+  //   settings = Seq()
+  // )
   .jvmPlatform(
     scalaVersions = Seq(V.scala213),
     axisValues = Seq(TargetAxis(V.scala213)),
