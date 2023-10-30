@@ -17,4 +17,10 @@ object Assignments {
     val future = Future(6) // assert: ScalafixNoDiscard
     42
   }
+
+  def usageGraph()(implicit ec: ExecutionContext) = {
+    val f1 = Future(6)
+    val f2 = f1
+    f2
+  }
 }

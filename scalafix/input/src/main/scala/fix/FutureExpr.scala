@@ -25,7 +25,7 @@ object FutureExpr {
   }
 
   def discardedWithTypeCast(): Unit = {
-    Future.successful(6) // assert:ScalafixNoDiscard
+    Future.successful(6) // assert: ScalafixNoDiscard
   }
 
 }

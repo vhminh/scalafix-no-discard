@@ -23,8 +23,10 @@ object FutureExpr {
               Some(apply)
             case ClassSignature(_, _, _, _) if fun.symbol.value == "scala/concurrent/Future." =>
               Some(apply)
+            case _ => None
           }
         }
+      case _ => None
     }
   }
 }
@@ -38,8 +40,8 @@ class ScalafixNoDiscard extends SemanticRule("ScalafixNoDiscard") {
         stats.collect {
           case FutureExpr(apply) =>
             Patch.lint(DiscardedFuture(apply.pos))
-          case Defn.Val(_, pats, _, FutureExpr(_)) =>
-            Patch.lint(DiscardedFuture(pats.head.pos))
+//          case Defn.Val(_, pats, _, FutureExpr(_)) =>
+//            Patch.lint(DiscardedFuture(pats.head.pos))
         }
     }.flatten.asPatch
   }
