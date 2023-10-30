@@ -33,17 +33,42 @@ object FutureExpr {
 
 class ScalafixNoDiscard extends SemanticRule("ScalafixNoDiscard") {
 
-  override def fix(implicit doc: SemanticDocument): Patch = {
+  private def unassignedIntermediateExpr(implicit doc: SemanticDocument): Patch = {
     doc.tree.collect {
       case Block(_stats) =>
         val stats = _stats.dropRight(1)
         stats.collect {
           case FutureExpr(apply) =>
             Patch.lint(DiscardedFuture(apply.pos))
-//          case Defn.Val(_, pats, _, FutureExpr(_)) =>
-//            Patch.lint(DiscardedFuture(pats.head.pos))
         }
     }.flatten.asPatch
   }
 
+  private def implicitlyDiscardedAsUnits(implicit doc: SemanticDocument): Patch = {
+    val implicitUnits = doc.diagnostics
+      .filter(_.message == "discarded non-Unit value")
+      .map(_.position)
+      .toSet
+    doc.tree.collect {
+      case Block(stats) =>
+        stats.lastOption match {
+          case Some(FutureExpr(last)) if implicitUnits.contains(last.pos) =>
+            Some(Patch.lint(DiscardedFuture(last.pos)))
+          case _ =>
+            None
+        }
+    }.flatten.asPatch
+  }
+
+  private def assignedToUnusedVar(implicit doc: SemanticDocument): Patch = {
+    doc.tree.collect {
+      case Defn.Val(_, pats, _, FutureExpr(_)) =>
+        // Patch.lint(DiscardedFuture(pats.head.pos))
+        Patch.empty
+    }.asPatch
+  }
+
+  override def fix(implicit doc: SemanticDocument): Patch = {
+    Seq(unassignedIntermediateExpr, implicitlyDiscardedAsUnits, assignedToUnusedVar).asPatch
+  }
 }
