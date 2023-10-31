@@ -9,31 +9,59 @@ case class DiscardedFuture(position: Position) extends Diagnostic {
   override def message: String = "suspicious fire and forget Future"
 }
 
+object RetTerm {
+  def unapply(term: Term): Option[Term] = {
+    term match {
+      case Block(stats) =>
+        stats.lastOption match {
+          case Some(term: Term) => Some(term)
+          case _ => None
+        }
+      case other => Some(other)
+    }
+  }
+}
+
+object SemType {
+  def unapply(term: Term)(implicit doc: SemanticDocument): Option[Symbol] = {
+    term match {
+      case Apply.After_4_6_0(fun, _) =>
+        fun.symbol.info.flatMap { info =>
+          info.signature match {
+            case MethodSignature(_, _, TypeRef(NoType, typeSymbol, _)) =>
+              Some(typeSymbol)
+            case ClassSignature(_, _, _, _) =>
+              Some(fun.symbol)
+            case _ => None
+          }
+        }
+      case ApplyInfix.After_4_6_0(_, fun, _, _) =>
+        fun.symbol.info.flatMap { info =>
+          info.signature match {
+            case MethodSignature(_, _, TypeRef(NoType, typeSymbol, _)) =>
+              Some(typeSymbol)
+            case _ => None
+          }
+        }
+      case RetTerm(retTerm) =>
+        if (retTerm != term) {
+          unapply(retTerm)
+        } else {
+          None
+        }
+    }
+  }
+}
 
 object FutureExpr {
 
   val futureMatcher = SymbolMatcher.exact("scala/concurrent/Future#")
+  val futureCompanionMatcher = SymbolMatcher.exact("scala/concurrent/Future.")
 
-  def unapply(term: Term)(implicit doc: SemanticDocument): Option[Term] = {
+  def unapply(term: Term)(implicit doc: SemanticDocument): Option[Symbol] = {
     term match {
-      case apply@Apply.After_4_6_0(fun, _) =>
-        fun.symbol.info.flatMap { info =>
-          info.signature match {
-            case MethodSignature(_, _, TypeRef(NoType, futureMatcher(_), _)) =>
-              Some(apply)
-            case ClassSignature(_, _, _, _) if fun.symbol.value == "scala/concurrent/Future." =>
-              Some(apply)
-            case _ => None
-          }
-        }
-      case apply@ApplyInfix.After_4_6_0(_, fun, _, _) =>
-        fun.symbol.info.flatMap { info =>
-          info.signature match {
-            case MethodSignature(_, _, TypeRef(NoType, futureMatcher(_), _)) =>
-              Some(apply)
-            case _ => None
-          }
-        }
+      case SemType(futureMatcher(s)) => Some(s)
+      case SemType(futureCompanionMatcher(s)) => Some(s)
       case _ => None
     }
   }
@@ -46,8 +74,8 @@ class ScalafixNoDiscard extends SemanticRule("ScalafixNoDiscard") {
       case Block(_stats) =>
         val stats = _stats.dropRight(1)
         stats.collect {
-          case FutureExpr(apply) =>
-            Patch.lint(DiscardedFuture(apply.pos))
+          case expr@FutureExpr(_) =>
+            Patch.lint(DiscardedFuture(expr.pos))
         }
     }.flatten.asPatch
   }
@@ -60,10 +88,23 @@ class ScalafixNoDiscard extends SemanticRule("ScalafixNoDiscard") {
     doc.tree.collect {
       case Block(stats) =>
         stats.lastOption match {
-          case Some(FutureExpr(last)) if implicitUnits.contains(last.pos) =>
-            Some(Patch.lint(DiscardedFuture(last.pos)))
+          case Some(expr@FutureExpr(_)) if implicitUnits.contains(expr.pos) =>
+            Some(Patch.lint(DiscardedFuture(expr.pos)))
           case _ =>
             None
+        }
+    }.flatten.asPatch
+  }
+
+  private def upcasted(implicit doc: SemanticDocument): Patch = {
+    doc.tree.collect {
+      case Term.If.After_4_4_0(_, thenBranch, elseBranch, _) =>
+        (thenBranch, elseBranch) match {
+          // TODO: check Future convertable types
+          case (FutureExpr(_), FutureExpr(_)) => None
+          case (RetTerm(expr@FutureExpr(_)), _) => Some(Patch.lint(DiscardedFuture(expr.pos)))
+          case (_, RetTerm(expr@FutureExpr(_))) => Some(Patch.lint(DiscardedFuture(expr.pos)))
+          case _ => None
         }
     }.flatten.asPatch
   }
@@ -77,6 +118,6 @@ class ScalafixNoDiscard extends SemanticRule("ScalafixNoDiscard") {
   }
 
   override def fix(implicit doc: SemanticDocument): Patch = {
-    Seq(unassignedIntermediateExpr, implicitlyDiscardedAsUnits, assignedToUnusedVar).asPatch
+    Seq(unassignedIntermediateExpr, implicitlyDiscardedAsUnits, upcasted, assignedToUnusedVar).asPatch
   }
 }
