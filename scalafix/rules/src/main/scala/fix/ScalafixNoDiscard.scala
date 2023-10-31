@@ -2,7 +2,7 @@ package fix
 
 import scalafix.v1._
 
-import scala.meta.Term.{Apply, Block}
+import scala.meta.Term.{Apply, ApplyInfix, Block}
 import scala.meta._
 
 case class DiscardedFuture(position: Position) extends Diagnostic {
@@ -14,7 +14,7 @@ object FutureExpr {
 
   val futureMatcher = SymbolMatcher.exact("scala/concurrent/Future#")
 
-  def unapply(term: Term)(implicit doc: SemanticDocument): Option[Apply] = {
+  def unapply(term: Term)(implicit doc: SemanticDocument): Option[Term] = {
     term match {
       case apply@Apply.After_4_6_0(fun, _) =>
         fun.symbol.info.flatMap { info =>
@@ -22,6 +22,14 @@ object FutureExpr {
             case MethodSignature(_, _, TypeRef(NoType, futureMatcher(_), _)) =>
               Some(apply)
             case ClassSignature(_, _, _, _) if fun.symbol.value == "scala/concurrent/Future." =>
+              Some(apply)
+            case _ => None
+          }
+        }
+      case apply@ApplyInfix.After_4_6_0(_, fun, _, _) =>
+        fun.symbol.info.flatMap { info =>
+          info.signature match {
+            case MethodSignature(_, _, TypeRef(NoType, futureMatcher(_), _)) =>
               Some(apply)
             case _ => None
           }
