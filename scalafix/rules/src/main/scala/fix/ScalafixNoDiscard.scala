@@ -168,16 +168,21 @@ class ScalafixNoDiscard extends SemanticRule("ScalafixNoDiscard") {
         }
       case matchExpr@Match.After_4_4_5(_, cases, _) =>
         val casesTypeOpts = cases.map { xcase => SemType.unapply(xcase.body) }
-        if (casesTypeOpts.contains(None)) {
-          Some(Patch.lint(Upcasted(casesTypeOpts.flatten, matchExpr.pos)))
-        } else {
-          // FIXME: check subtypes
-          val casesTypes = casesTypeOpts.flatten
-          if (SemType.typeEqIgnoreCompanion(casesTypes: _*)) {
-            None
+        val hasFuture = casesTypeOpts.flatten.exists(s => FutureExpr.allMatchers.matches(s))
+        if (hasFuture) {
+          if (casesTypeOpts.contains(None)) {
+            Some(Patch.lint(Upcasted(casesTypeOpts.flatten, matchExpr.pos)))
           } else {
-            Some(Patch.lint(Upcasted(casesTypes, matchExpr.pos)))
+            // FIXME: check subtypes
+            val casesTypes = casesTypeOpts.flatten
+            if (SemType.typeEqIgnoreCompanion(casesTypes: _*)) {
+              None
+            } else {
+              Some(Patch.lint(Upcasted(casesTypes, matchExpr.pos)))
+            }
           }
+        } else {
+          None
         }
     }.flatten.asPatch
   }

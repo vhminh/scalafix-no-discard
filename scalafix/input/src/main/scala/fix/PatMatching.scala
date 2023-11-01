@@ -7,6 +7,15 @@ import scala.concurrent.Future
 
 object PatMatching {
 
+  def dontCareNonFutureTypes() = {
+    4 match {
+      case 1 => 6
+      case 2 => "9"
+      case _ => ???
+    }
+    42
+  }
+
   def patternMatchReturn() = {
     4 match {
       case 1 => Future.successful(6)
