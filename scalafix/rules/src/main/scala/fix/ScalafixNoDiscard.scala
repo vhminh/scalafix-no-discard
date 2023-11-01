@@ -2,8 +2,8 @@ package fix
 
 import scalafix.v1._
 
-import scala.meta.Term.{Apply, ApplyInfix, Block}
-import scala.meta._
+import scala.meta.{Defn, Position, Term}
+import scala.meta.Term.{Apply, ApplyInfix, Block, If}
 
 case class DiscardedFuture(position: Position) extends Diagnostic {
   override def message: String = "suspicious fire and forget Future"
@@ -42,6 +42,12 @@ object SemType {
               Some(typeSymbol)
             case _ => None
           }
+        }
+      case If.After_4_4_0(_, thenTerm, elseTerm, _) =>
+        (thenTerm, elseTerm) match {
+          case (SemType(thenType), SemType(elseType)) if thenType == elseType =>
+            Some(thenType)
+          case _ => None // FIXME: check subtypes
         }
       case RetTerm(retTerm) =>
         if (retTerm != term) {

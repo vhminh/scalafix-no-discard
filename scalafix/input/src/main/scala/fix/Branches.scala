@@ -16,11 +16,11 @@ object Branches {
   }
 
   def discardFutureBothBranches() = {
-    if (true) {
+    if (true) { // assert: ScalafixNoDiscard
       Future.successful(6)
     } else {
       Future.successful(9)
-    } // FIXME: assert: ScalafixNoDiscard
+    }
     42
   }
 
