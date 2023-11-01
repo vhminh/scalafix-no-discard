@@ -17,7 +17,7 @@ object FutureExpr {
     42
   }
 
-  def futureConstructor()(implicit ec: ExecutionContext) = {
+  def futureCompanionObject()(implicit ec: ExecutionContext) = {
     Future(6) // assert: ScalafixNoDiscard
     42
   }
@@ -34,6 +34,16 @@ object FutureExpr {
 
   def returned() = {
     Future.successful(6)
+  }
+
+  def callback(callback: (Int) => Future[Int]) = {
+    callback(6) // assert: ScalafixNoDiscard
+    42
+  }
+
+  def lazyValue(lazyF: => Future[Int]) = {
+    lazyF // assert: ScalafixNoDiscard
+    42
   }
 
   def onComplete()(implicit ec: ExecutionContext) = {

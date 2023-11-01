@@ -24,6 +24,14 @@ object Branches {
     42
   }
 
+  def companionAndClassesAreConsideredTheSame(implicit ec: ExecutionContext) = {
+    if (true) {
+      Future.successful(6)
+    } else {
+      Future(9)
+    }
+  }
+
   def discardedWithUpcast() = {
     if (true) {
       Future.successful(6) // assert: ScalafixNoDiscard
