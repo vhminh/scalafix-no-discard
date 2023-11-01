@@ -3,9 +3,13 @@ package fix
 import scalafix.v1._
 
 import scala.meta.{Defn, Enumerator, Position, Term}
-import scala.meta.Term.{Apply, ApplyInfix, Block, ForYield, If}
+import scala.meta.Term.{Apply, ApplyInfix, Block, ForYield, If, Match}
 
-case class CustomDiagnostic(message: String, position: Position) extends Diagnostic
+case class Upcasted(types: Seq[Symbol], position: Position) extends Diagnostic {
+  override def message: String = {
+    s"values of types ${types.map(_.displayName).mkString(", ")} are upcasted, please make sure that they are not discarded"
+  }
+}
 
 case class Discarded(`type`: Symbol, position: Position) extends Diagnostic {
   override def message: String = s"suspicious discarded value of type ${`type`.displayName}"
@@ -25,14 +29,15 @@ object RetTerm {
 }
 
 object SemType {
-  def typeEqIgnoreCompanion(type1: Symbol, type2: Symbol): Boolean = {
-    val s1 = if (type1.value.endsWith("#") || type1.value.endsWith(".")) {
-      type1.value.dropRight(1)
+  def typeEqIgnoreCompanion(types: Symbol*): Boolean = {
+    val typeAsStrs = types.map { sym =>
+      if (sym.value.endsWith("#") || sym.value.endsWith(".")) {
+        sym.value.dropRight(1)
+      } else {
+        sym.value
+      }
     }
-    val s2 = if (type2.value.endsWith("#") || type2.value.endsWith(".")) {
-      type2.value.dropRight(1)
-    }
-    s1 == s2
+    typeAsStrs.forall(_ == typeAsStrs.head)
   }
 
   val scalaFnMatcher = SymbolMatcher.exact((for (i <- 0 to 22) yield s"scala/Function$i#"): _*)
@@ -42,6 +47,8 @@ object SemType {
       case term@Term.Name(_) =>
         term.symbol.info.flatMap { info =>
           info.signature match {
+            case ValueSignature(TypeRef(NoType, typeSymbol, _)) =>
+              Some(typeSymbol)
             case ValueSignature(ByNameType(TypeRef(NoType, typeSymbol, _))) =>
               Some(typeSymbol)
             case _ => None
@@ -75,6 +82,19 @@ object SemType {
         }
       case ForYield(Enumerator.Generator(_, SemType(rhsType)) :: _, body) =>
         Some(rhsType) // FIXME: we only need to know that it is a Future, need to check body for cases such as Future[Int]
+      case Match.After_4_4_5(_, cases, _) =>
+        val casesTypeOpts = cases.map { xcase => SemType.unapply(xcase.body) }
+        if (casesTypeOpts.contains(None)) {
+          None
+        } else {
+          // FIXME: check subtypes
+          val casesTypes = casesTypeOpts.flatten
+          if (typeEqIgnoreCompanion(casesTypes: _*)) {
+            Some(casesTypes.head)
+          } else {
+            None
+          }
+        }
       case RetTerm(retTerm) =>
         if (retTerm != term) {
           unapply(retTerm)
@@ -138,13 +158,26 @@ class ScalafixNoDiscard extends SemanticRule("ScalafixNoDiscard") {
           // TODO: check Future convertable types
           case (FutureExpr(f1), FutureExpr(f2)) =>
             if (!SemType.typeEqIgnoreCompanion(f1, f2)) {
-              Some(Patch.lint(CustomDiagnostic(s"${f1.displayName} and ${f2.displayName} are Futures but are upcasted, please make sure that their values are not discarded", ifExpr.pos)))
+              Some(Patch.lint(Upcasted(Seq(f1, f2), ifExpr.pos)))
             } else {
               None
             }
           case (RetTerm(expr@FutureExpr(xtype)), _) => Some(Patch.lint(Discarded(xtype, expr.pos)))
           case (_, RetTerm(expr@FutureExpr(xtype))) => Some(Patch.lint(Discarded(xtype, expr.pos)))
           case _ => None
+        }
+      case matchExpr@Match.After_4_4_5(_, cases, _) =>
+        val casesTypeOpts = cases.map { xcase => SemType.unapply(xcase.body) }
+        if (casesTypeOpts.contains(None)) {
+          Some(Patch.lint(Upcasted(casesTypeOpts.flatten, matchExpr.pos)))
+        } else {
+          // FIXME: check subtypes
+          val casesTypes = casesTypeOpts.flatten
+          if (SemType.typeEqIgnoreCompanion(casesTypes: _*)) {
+            None
+          } else {
+            Some(Patch.lint(Upcasted(casesTypes, matchExpr.pos)))
+          }
         }
     }.flatten.asPatch
   }
