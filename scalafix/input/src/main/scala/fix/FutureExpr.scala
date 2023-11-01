@@ -27,6 +27,11 @@ object FutureExpr {
     42
   }
 
+  def getOrElse() = {
+    Option(Future.successful(6)).getOrElse(Future.successful(6)) // FIXME: assert: ScalafixNoDiscard, should detect getOrElse returning the same type as input arg
+    42
+  }
+
   def callingAsInfixFn()(implicit ec: ExecutionContext) = {
     Future.successful(6) >> Future.successful("6") // assert: ScalafixNoDiscard
     42
