@@ -95,12 +95,9 @@ object SemType {
             None
           }
         }
-      case RetTerm(retTerm) =>
-        if (retTerm != term) {
-          unapply(retTerm)
-        } else {
-          None
-        }
+      case Block(_ :+ (last: Term)) =>
+        unapply(last)
+      case _ => None
     }
   }
 }
