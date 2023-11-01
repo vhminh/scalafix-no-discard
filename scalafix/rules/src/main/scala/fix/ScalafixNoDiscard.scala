@@ -2,8 +2,8 @@ package fix
 
 import scalafix.v1._
 
-import scala.meta.{Defn, Position, Term}
-import scala.meta.Term.{Apply, ApplyInfix, Block, If}
+import scala.meta.{Defn, Enumerator, Position, Term}
+import scala.meta.Term.{Apply, ApplyInfix, Block, ForYield, If}
 
 case class DiscardedFuture(position: Position) extends Diagnostic {
   override def message: String = "suspicious fire and forget Future"
@@ -49,6 +49,9 @@ object SemType {
             Some(thenType)
           case _ => None // FIXME: check subtypes
         }
+      case ForYield(Enumerator.Generator(_, SemType(rhsType)) :: _, body) =>
+        println(rhsType)
+        Some(rhsType) // FIXME: we only need to know that it is a Future, need to check body for cases such as Future[Int]
       case RetTerm(retTerm) =>
         if (retTerm != term) {
           unapply(retTerm)

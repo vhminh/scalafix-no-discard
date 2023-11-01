@@ -14,10 +14,10 @@ object ForComps {
   }
 
   def discarded()(implicit ec: ExecutionContext) = {
-    for {
+    for { // assert: ScalafixNoDiscard
       i <- Future.successful(6)
       j <- Future.successful(9)
-    } yield i + j // assert: ScalafixNoDiscard
+    } yield i + j
     42
   }
 }
