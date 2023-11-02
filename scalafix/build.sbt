@@ -17,11 +17,11 @@ inThisBuild(
         "mvu",
         "Minh Vu",
         "mvu@axon.com",
-        url("https://github.com/vhminh")
+        url("https://github.com/vhminh"),
       )
     ),
     semanticdbEnabled := true,
-    semanticdbVersion := scalafixSemanticdb.revision
+    semanticdbVersion := scalafixSemanticdb.revision,
   )
 )
 
@@ -39,7 +39,7 @@ lazy val `scalafix-no-discard` = (project in file("."))
 lazy val rules = projectMatrix
   .settings(
     moduleName := "scalafix",
-    libraryDependencies += "ch.epfl.scala" %% "scalafix-core" % V.scalafixVersion
+    libraryDependencies += "ch.epfl.scala" %% "scalafix-core" % V.scalafixVersion,
   )
   .defaultAxes(VirtualAxis.jvm)
   .jvmPlatform(rulesCrossVersions)
@@ -88,7 +88,7 @@ lazy val tests = projectMatrix
       TargetAxis.resolve(input, Compile / scalacOptions).value,
     scalafixTestkitInputScalaVersion :=
       TargetAxis.resolve(input, Compile / scalaVersion).value,
-    Test / testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-u", "target/test-reports")
+    Test / testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-u", "target/test-reports"),
   )
   .defaultAxes(
     rulesCrossVersions.map(VirtualAxis.scalaABIVersion) :+ VirtualAxis.jvm: _*
@@ -101,12 +101,12 @@ lazy val tests = projectMatrix
   .jvmPlatform(
     scalaVersions = Seq(V.scala213),
     axisValues = Seq(TargetAxis(V.scala213)),
-    settings = Seq()
+    settings = Seq(),
   )
   .jvmPlatform(
     scalaVersions = Seq(V.scala212),
     axisValues = Seq(TargetAxis(V.scala212)),
-    settings = Seq()
+    settings = Seq(),
   )
   .dependsOn(rules)
   .enablePlugins(ScalafixTestkitPlugin)
