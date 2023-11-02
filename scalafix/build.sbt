@@ -87,7 +87,8 @@ lazy val tests = projectMatrix
     scalafixTestkitInputScalacOptions :=
       TargetAxis.resolve(input, Compile / scalacOptions).value,
     scalafixTestkitInputScalaVersion :=
-      TargetAxis.resolve(input, Compile / scalaVersion).value
+      TargetAxis.resolve(input, Compile / scalaVersion).value,
+    Test / testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-u", "target/test-reports")
   )
   .defaultAxes(
     rulesCrossVersions.map(VirtualAxis.scalaABIVersion) :+ VirtualAxis.jvm: _*
