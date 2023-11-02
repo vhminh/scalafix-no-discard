@@ -21,7 +21,7 @@ object RetTerm {
       case Block(stats) =>
         stats.lastOption match {
           case Some(term: Term) => Some(term)
-          case _ => None
+          case _                => None
         }
       case other => Some(other)
     }
@@ -44,7 +44,7 @@ object SemType {
 
   def unapply(term: Term)(implicit doc: SemanticDocument): Option[Symbol] = {
     term match {
-      case term@Term.Name(_) =>
+      case term @ Term.Name(_) =>
         term.symbol.info.flatMap { info =>
           info.signature match {
             case ValueSignature(TypeRef(NoType, typeSymbol, _)) =>
@@ -81,7 +81,9 @@ object SemType {
           case _ => None // FIXME: check subtypes
         }
       case ForYield(Enumerator.Generator(_, SemType(rhsType)) :: _, body) =>
-        Some(rhsType) // FIXME: we only need to know that it is a Future, need to check body for cases such as Future[Int]
+        Some(
+          rhsType
+        ) // FIXME: we only need to know that it is a Future, need to check body for cases such as Future[Int]
       case Match.After_4_4_5(_, cases, _) =>
         val casesTypeOpts = cases.map { xcase => SemType.unapply(xcase.body) }
         if (casesTypeOpts.contains(None)) {
@@ -114,7 +116,7 @@ object FutureExpr {
   def unapply(term: Term)(implicit doc: SemanticDocument): Option[Symbol] = {
     term match {
       case SemType(allMatchers(s)) => Some(s)
-      case _ => None
+      case _                       => None
     }
   }
 }
@@ -122,19 +124,20 @@ object FutureExpr {
 class ScalafixNoDiscard extends SemanticRule("ScalafixNoDiscard") {
 
   private def unassignedIntermediateExpr(implicit doc: SemanticDocument): Patch = {
-    doc.tree.collect {
-      case Block(_stats) =>
-        val stats = _stats.dropRight(1)
-        stats.collect {
-          case expr@FutureExpr(xtype) =>
+    doc.tree
+      .collect {
+        case Block(_stats) =>
+          val stats = _stats.dropRight(1)
+          stats.collect { case expr @ FutureExpr(xtype) =>
             Patch.lint(Discarded(xtype, expr.pos))
-        }
-      case Defn.Object(_, _, Template.After_4_4_0(_, _, _, body, _)) =>
-        body.collect {
-          case expr@FutureExpr(typeSym) =>
+          }
+        case Defn.Object(_, _, Template.After_4_4_0(_, _, _, body, _)) =>
+          body.collect { case expr @ FutureExpr(typeSym) =>
             Patch.lint(Discarded(typeSym, expr.pos))
-        }
-    }.flatten.asPatch
+          }
+      }
+      .flatten
+      .asPatch
   }
 
   private def implicitlyDiscardedAsUnits(implicit doc: SemanticDocument): Patch = {
@@ -142,65 +145,73 @@ class ScalafixNoDiscard extends SemanticRule("ScalafixNoDiscard") {
       .filter(_.message.startsWith("discarded non-Unit value"))
       .map(_.position)
       .toSet
-    doc.tree.collect {
-      case Block(stats) =>
+    doc.tree
+      .collect { case Block(stats) =>
         stats.lastOption match {
-          case Some(expr@FutureExpr(xtype)) if implicitUnits.contains(expr.pos) =>
+          case Some(expr @ FutureExpr(xtype)) if implicitUnits.contains(expr.pos) =>
             Some(Patch.lint(Discarded(xtype, expr.pos)))
           case _ =>
             None
         }
-    }.flatten.asPatch
+      }
+      .flatten
+      .asPatch
   }
 
   private def upcastedInBranches(implicit doc: SemanticDocument): Patch = {
-    doc.tree.collect {
-      case ifExpr@Term.If.After_4_4_0(_, thenBranch, elseBranch, _) =>
-        (thenBranch, elseBranch) match {
-          // TODO: check Future convertable types
-          case (FutureExpr(f1), FutureExpr(f2)) =>
-            if (!SemType.typeEqIgnoreCompanion(f1, f2)) {
-              Some(Patch.lint(Upcasted(Seq(f1, f2), ifExpr.pos)))
-            } else {
-              None
-            }
-          case (RetTerm(expr@FutureExpr(xtype)), _) => Some(Patch.lint(Discarded(xtype, expr.pos)))
-          case (_, RetTerm(expr@FutureExpr(xtype))) => Some(Patch.lint(Discarded(xtype, expr.pos)))
-          case _ => None
-        }
-      case matchExpr@Match.After_4_4_5(_, cases, _) =>
-        val casesTypeOpts = cases.map { xcase => SemType.unapply(xcase.body) }
-        val hasFuture = casesTypeOpts.flatten.exists(s => FutureExpr.allMatchers.matches(s))
-        if (hasFuture) {
-          if (casesTypeOpts.contains(None)) {
-            Some(Patch.lint(Upcasted(casesTypeOpts.flatten, matchExpr.pos)))
-          } else {
-            // FIXME: check subtypes
-            val casesTypes = casesTypeOpts.flatten
-            if (SemType.typeEqIgnoreCompanion(casesTypes: _*)) {
-              None
-            } else {
-              Some(Patch.lint(Upcasted(casesTypes, matchExpr.pos)))
-            }
+    doc.tree
+      .collect {
+        case ifExpr @ Term.If.After_4_4_0(_, thenBranch, elseBranch, _) =>
+          (thenBranch, elseBranch) match {
+            // TODO: check Future convertable types
+            case (FutureExpr(f1), FutureExpr(f2)) =>
+              if (!SemType.typeEqIgnoreCompanion(f1, f2)) {
+                Some(Patch.lint(Upcasted(Seq(f1, f2), ifExpr.pos)))
+              } else {
+                None
+              }
+            case (RetTerm(expr @ FutureExpr(xtype)), _) => Some(Patch.lint(Discarded(xtype, expr.pos)))
+            case (_, RetTerm(expr @ FutureExpr(xtype))) => Some(Patch.lint(Discarded(xtype, expr.pos)))
+            case _                                      => None
           }
-        } else {
-          None
-        }
-      // TODO: check try-catch
-    }.flatten.asPatch
+        case matchExpr @ Match.After_4_4_5(_, cases, _) =>
+          val casesTypeOpts = cases.map { xcase => SemType.unapply(xcase.body) }
+          val hasFuture = casesTypeOpts.flatten.exists(s => FutureExpr.allMatchers.matches(s))
+          if (hasFuture) {
+            if (casesTypeOpts.contains(None)) {
+              Some(Patch.lint(Upcasted(casesTypeOpts.flatten, matchExpr.pos)))
+            } else {
+              // FIXME: check subtypes
+              val casesTypes = casesTypeOpts.flatten
+              if (SemType.typeEqIgnoreCompanion(casesTypes: _*)) {
+                None
+              } else {
+                Some(Patch.lint(Upcasted(casesTypes, matchExpr.pos)))
+              }
+            }
+          } else {
+            None
+          }
+        // TODO: check try-catch
+      }
+      .flatten
+      .asPatch
   }
 
   private def assignedToUnusedVarInForComps(implicit doc: SemanticDocument): Patch = {
-    doc.tree.collect {
-      case ForYield(enums, _) =>
-        enums.collect {
-          case Enumerator.Val(wildcard@Pat.Wildcard(), FutureExpr(typeSym)) =>
-            Patch.lint(Discarded(typeSym, wildcard.pos))
-        }.asPatch
+    doc.tree.collect { case ForYield(enums, _) =>
+      enums.collect { case Enumerator.Val(wildcard @ Pat.Wildcard(), FutureExpr(typeSym)) =>
+        Patch.lint(Discarded(typeSym, wildcard.pos))
+      }.asPatch
     }.asPatch
   }
 
   override def fix(implicit doc: SemanticDocument): Patch = {
-    Seq(unassignedIntermediateExpr, implicitlyDiscardedAsUnits, upcastedInBranches, assignedToUnusedVarInForComps).asPatch
+    Seq(
+      unassignedIntermediateExpr,
+      implicitlyDiscardedAsUnits,
+      upcastedInBranches,
+      assignedToUnusedVarInForComps,
+    ).asPatch
   }
 }

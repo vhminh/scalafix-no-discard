@@ -1,6 +1,6 @@
 /*
 rule = ScalafixNoDiscard
-*/
+ */
 package fix
 
 import scala.concurrent.{ExecutionContext, Future}

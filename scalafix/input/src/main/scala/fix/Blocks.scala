@@ -1,6 +1,6 @@
 /*
 rule = ScalafixNoDiscard
-*/
+ */
 package fix
 
 import scala.concurrent.Future
@@ -32,14 +32,14 @@ object Blocks {
     try {
       Future.successful(1) // assert: ScalafixNoDiscard
       Future.successful(2)
-    } catch  {
+    } catch {
       case e: Exception =>
         Future.successful(2) // assert: ScalafixNoDiscard
         Future.successful(3)
     } finally {
       Future.successful(4) // assert: ScalafixNoDiscard
       Future.successful(5) // assert: ScalafixNoDiscard
-    //^^^^^^ discarded as unit
+      // ^^^^^^ discarded as unit
     }
   }
 

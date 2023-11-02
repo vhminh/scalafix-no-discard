@@ -1,6 +1,6 @@
 /*
 rule = ScalafixNoDiscard
-*/
+ */
 package fix
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -28,7 +28,9 @@ object FutureExpr {
   }
 
   def getOrElse() = {
-    Option(Future.successful(6)).getOrElse(Future.successful(6)) // FIXME: assert: ScalafixNoDiscard, should detect getOrElse returning the same type as input arg
+    Option(Future.successful(6)).getOrElse(
+      Future.successful(6)
+    ) // FIXME: assert: ScalafixNoDiscard, should detect getOrElse returning the same type as input arg
     42
   }
 
