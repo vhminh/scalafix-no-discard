@@ -33,7 +33,7 @@ jobs:
       uses: dorny/test-reporter@v1.7.0
       if: always()
       with:
-        name: MUnit tests
+        name: ScalaTest report
         path: '**/target/test-reports/*.xml'
         reporter: 'java-junit'
 
