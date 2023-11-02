@@ -2,7 +2,7 @@ package fix
 
 import scalafix.v1._
 
-import scala.meta.{Defn, Enumerator, Position, Term}
+import scala.meta.{Defn, Enumerator, Pat, Position, Term}
 import scala.meta.Term.{Apply, ApplyInfix, Block, ForYield, If, Match}
 
 case class Upcasted(types: Seq[Symbol], position: Position) extends Diagnostic {
@@ -148,7 +148,7 @@ class ScalafixNoDiscard extends SemanticRule("ScalafixNoDiscard") {
     }.flatten.asPatch
   }
 
-  private def upcasted(implicit doc: SemanticDocument): Patch = {
+  private def upcastedInBranches(implicit doc: SemanticDocument): Patch = {
     doc.tree.collect {
       case ifExpr@Term.If.After_4_4_0(_, thenBranch, elseBranch, _) =>
         (thenBranch, elseBranch) match {
@@ -184,15 +184,17 @@ class ScalafixNoDiscard extends SemanticRule("ScalafixNoDiscard") {
     }.flatten.asPatch
   }
 
-  private def assignedToUnusedVar(implicit doc: SemanticDocument): Patch = {
+  private def assignedToUnusedVarInForComps(implicit doc: SemanticDocument): Patch = {
     doc.tree.collect {
-      case Defn.Val(_, pats, _, FutureExpr(_)) =>
-        // Patch.lint(DiscardedFuture(pats.head.pos))
-        Patch.empty
+      case ForYield(enums, _) =>
+        enums.collect {
+          case Enumerator.Val(wildcard@Pat.Wildcard(), FutureExpr(typeSym)) =>
+            Patch.lint(Discarded(typeSym, wildcard.pos))
+        }.asPatch
     }.asPatch
   }
 
   override def fix(implicit doc: SemanticDocument): Patch = {
-    Seq(unassignedIntermediateExpr, implicitlyDiscardedAsUnits, upcasted, assignedToUnusedVar).asPatch
+    Seq(unassignedIntermediateExpr, implicitlyDiscardedAsUnits, upcastedInBranches, assignedToUnusedVarInForComps).asPatch
   }
 }
