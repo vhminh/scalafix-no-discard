@@ -2,7 +2,7 @@ package fix
 
 import scalafix.v1._
 
-import scala.meta.{Defn, Enumerator, Pat, Position, Term}
+import scala.meta.{Defn, Enumerator, Pat, Position, Template, Term}
 import scala.meta.Term.{Apply, ApplyInfix, Block, ForYield, If, Match}
 
 case class Upcasted(types: Seq[Symbol], position: Position) extends Diagnostic {
@@ -129,6 +129,11 @@ class ScalafixNoDiscard extends SemanticRule("ScalafixNoDiscard") {
           case expr@FutureExpr(xtype) =>
             Patch.lint(Discarded(xtype, expr.pos))
         }
+      case Defn.Object(_, _, Template.After_4_4_0(_, _, _, body, _)) =>
+        body.collect {
+          case expr@FutureExpr(typeSym) =>
+            Patch.lint(Discarded(typeSym, expr.pos))
+        }
     }.flatten.asPatch
   }
 
@@ -181,6 +186,7 @@ class ScalafixNoDiscard extends SemanticRule("ScalafixNoDiscard") {
         } else {
           None
         }
+      // TODO: check try-catch
     }.flatten.asPatch
   }
 
