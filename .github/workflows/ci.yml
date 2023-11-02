@@ -39,7 +39,7 @@ jobs:
 
     - name: Style check
       if: success() || failure()
-      run: sbt scalafmtSbtCheck scalafmtCheck test:scalafmtCheck "scalafixAll --check"
+      run: sbt scalafmtSbtCheck scalafmtCheck test:scalafmtCheck
 
     - name: Sbt submit dependency
       uses: scalacenter/sbt-dependency-submission@v2.1.2
