@@ -66,6 +66,8 @@ object TypeOf {
               Some(symbol)
             case ValueSignature(TypeSym(symbol)) =>
               Some(symbol)
+            case MethodSignature(_, _, TypeSym(retType)) =>
+              Some(retType)
             case _ => None
           }
         }

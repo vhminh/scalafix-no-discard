@@ -34,6 +34,13 @@ object FutureExpr {
     42
   }
 
+  def nullaryCreateFuture = Future.successful(6)
+
+  def createWithNullaryMethod() = {
+    nullaryCreateFuture // assert: ScalafixNoDiscard
+    42
+  }
+
   def callingAsInfixFn()(implicit ec: ExecutionContext) = {
     Future.successful(6) >> Future.successful("6") // assert: ScalafixNoDiscard
     42
