@@ -34,9 +34,9 @@ object PatMatching {
   }
 
   def patternMatchUpcast() = {
-    1 match { // assert: ScalafixNoDiscard
+    1 match {
       case 1 => 2
-      case 2 => Future.successful(9)
+      case 2 => Future.successful(9) // assert: ScalafixNoDiscard
       case _ => 3
     }
   }

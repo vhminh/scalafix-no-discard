@@ -40,4 +40,17 @@ object Branches {
     }
     42
   }
+
+  def throwSomething() = {
+    throw new RuntimeException()
+  }
+
+  def nothingExtendsFuture() = {
+    if (true) {
+      Future.successful(6)
+    } else {
+      throwSomething()
+    }
+  }
+
 }
