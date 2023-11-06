@@ -6,6 +6,8 @@ package fix
 import scala.concurrent.{ExecutionContext, Future}
 
 object FutureExpr {
+  private type Result[T] = Future[T]
+
   implicit class FutureImplicits[T](f: Future[T])(implicit ec: ExecutionContext) {
     def >>[T2](f2: Future[T2]) = {
       f.flatMap(_ => f2)
@@ -43,6 +45,26 @@ object FutureExpr {
 
   def callingAsInfixFn()(implicit ec: ExecutionContext) = {
     Future.successful(6) >> Future.successful("6") // assert: ScalafixNoDiscard
+    42
+  }
+
+  def withLocalTypeDef() = {
+    type LocalResult[T] = scala.concurrent.Future[T]
+
+    def createF(): LocalResult[Int] = {
+      ???
+    }
+
+    createF() // assert: ScalafixNoDiscard
+    42
+  }
+
+  def withTypeDef() = {
+    def createF(): Result[Int] = {
+      ???
+    }
+
+    createF() // assert: ScalafixNoDiscard
     42
   }
 
