@@ -3,7 +3,7 @@ package fix
 import scalafix.v1._
 
 import scala.meta.{Defn, Enumerator, Pat, Position, Template, Term}
-import scala.meta.Term.{Apply, ApplyInfix, Block, ForYield, If, Match}
+import scala.meta.Term.{Apply, ApplyInfix, Block, ForYield, If, Match, Throw}
 
 case class BranchReturnTypeCast(branchType: Symbol, finalType: Symbol, position: Position) extends Diagnostic {
   override def message: String = {
@@ -25,7 +25,7 @@ object utils {
   def lastOfBlock(term: Term): Term = {
     term match {
       case Block(_ :+ (lastTerm: Term)) => lastTerm
-      case other => other
+      case other                        => other
     }
   }
 }
@@ -38,7 +38,7 @@ object TypeOf {
     def unapply(semType: SemanticType): Option[Symbol] = {
       semType match {
         case TypeRef(_, symbol, _) => Some(symbol)
-        case _ => None
+        case _                     => None
       }
     }
   }
@@ -58,19 +58,21 @@ object TypeOf {
   }
 
   def resolveTypeAlias(symbol: Symbol)(implicit doc: SemanticDocument): Symbol = {
-    symbol.info.flatMap { info =>
-      info.signature match {
-        case TypeSignature(_, TypeSym(lowerBound), TypeSym(upperBound)) if lowerBound == upperBound =>
-          // FIXME: handle lowerBound != upperBound
-          Some(lowerBound)
-        case _ => None
+    symbol.info
+      .flatMap { info =>
+        info.signature match {
+          case TypeSignature(_, TypeSym(lowerBound), TypeSym(upperBound)) if lowerBound == upperBound =>
+            // FIXME: handle lowerBound != upperBound
+            Some(lowerBound)
+          case _ => None
+        }
       }
-    }.getOrElse(symbol)
+      .getOrElse(symbol)
   }
 
   def unapply(term: Term)(implicit doc: SemanticDocument): Option[Symbol] = {
     val symbol = term match {
-      case term@Term.Name(_) =>
+      case term @ Term.Name(_) =>
         term.symbol.info.flatMap { info =>
           info.signature match {
             case ValueSignature(ByNameType(TypeSym(symbol))) =>
@@ -133,7 +135,8 @@ object TypeOf {
         }
       case Block(_ :+ (last: Term)) =>
         unapply(last)
-      case _ => None
+      case Throw(_) => Some(Symbols.Nothing)
+      case _        => None
     }
     symbol.map(resolveTypeAlias)
   }
@@ -153,7 +156,7 @@ object FutureExpr {
   def unapply(term: Term)(implicit doc: SemanticDocument): Option[Symbol] = {
     term match {
       case TypeOf(allMatchers(symbol)) => Some(symbol)
-      case _ => None
+      case _                           => None
     }
   }
 }
@@ -165,11 +168,11 @@ class ScalafixNoDiscard extends SemanticRule("ScalafixNoDiscard") {
       .collect {
         case Block(_stats) =>
           val stats = _stats.dropRight(1)
-          stats.collect { case expr@FutureExpr(typeSym) =>
+          stats.collect { case expr @ FutureExpr(typeSym) =>
             Patch.lint(IntermediateValueDiscarded(typeSym, expr.pos))
           }
         case Defn.Object(_, _, Template.After_4_4_0(_, _, _, body, _)) =>
-          body.collect { case expr@FutureExpr(typeSym) =>
+          body.collect { case expr @ FutureExpr(typeSym) =>
             Patch.lint(IntermediateValueDiscarded(typeSym, expr.pos))
           }
       }
@@ -185,7 +188,7 @@ class ScalafixNoDiscard extends SemanticRule("ScalafixNoDiscard") {
     doc.tree
       .collect { case Block(stats) =>
         stats.lastOption match {
-          case Some(expr@FutureExpr(xtype)) if implicitUnits.contains(expr.pos) =>
+          case Some(expr @ FutureExpr(xtype)) if implicitUnits.contains(expr.pos) =>
             Some(Patch.lint(IntermediateValueDiscarded(xtype, expr.pos)))
           case _ =>
             None
@@ -202,7 +205,7 @@ class ScalafixNoDiscard extends SemanticRule("ScalafixNoDiscard") {
       .zipWithIndex
       .flatMap {
         case (Some(t), i) => Some(i -> t)
-        case _ => None
+        case _            => None
       }
       .toMap
     val subType = if (types.size < terms.length) {
@@ -240,7 +243,7 @@ class ScalafixNoDiscard extends SemanticRule("ScalafixNoDiscard") {
 
   private def assignedToUnusedVarInForComps(implicit doc: SemanticDocument): Patch = {
     doc.tree.collect { case ForYield(enums, _) =>
-      enums.collect { case Enumerator.Val(wildcard@Pat.Wildcard(), FutureExpr(typeSym)) =>
+      enums.collect { case Enumerator.Val(wildcard @ Pat.Wildcard(), FutureExpr(typeSym)) =>
         Patch.lint(IntermediateValueDiscarded(typeSym, wildcard.pos))
       }.asPatch
     }.asPatch

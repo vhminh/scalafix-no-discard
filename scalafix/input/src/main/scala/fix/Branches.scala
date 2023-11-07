@@ -49,4 +49,12 @@ object Branches {
     }
   }
 
+  def throwsReturnNothing() = {
+    if (true) {
+      Future.successful(6)
+    } else {
+      throw new RuntimeException()
+    }
+  }
+
 }
